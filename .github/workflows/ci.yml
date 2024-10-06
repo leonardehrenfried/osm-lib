@@ -1,0 +1,30 @@
+name: CI Build
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      MAVEN_OPTS: -Xmx2g
+      CONTAINER_REPO: ghcr.io/leonardehrenfried/osm-lib
+      CONTAINER_REGISTRY_USER: ${{ github.repository_owner }}
+      CONTAINER_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+
+      - name: Test
+        run: mvn --batch-mode test
+
+      - name: Build container image with Jib, push to Dockerhub
+        run: |
+          image_date=`date +%Y-%m-%dT%H-%M`
+          mvn --batch-mode compile com.google.cloud.tools:jib-maven-plugin:build -Djib.to.tags=latest,$image_date
