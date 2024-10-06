@@ -141,6 +141,9 @@
         <artifactId>jib-maven-plugin</artifactId>
         <version>3.3.1</version>
         <configuration>
+          <container>
+            <mainClass>com.conveyal.osmlib.VanillaExtract</mainClass>
+          </container>
           <to>
             <image>ghcr.io/leonardehrenfried/osm-lib:latest</image>
             <auth>
