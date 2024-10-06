@@ -71,8 +71,8 @@
         <version>3.2</version>
         <configuration>
           <!-- Target Java versions -->
-          <source>1.8</source>
-          <target>1.8</target>
+          <source>21</source>
+          <target>21</target>
         </configuration>
       </plugin>
       <plugin>
