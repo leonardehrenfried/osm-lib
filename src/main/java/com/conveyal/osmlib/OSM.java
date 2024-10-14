@@ -357,7 +357,7 @@ public class OSM implements OSMEntitySource, OSMEntitySink {
 
     @Override
     public void setReplicationUrl(String url) {
-        replicationUrl.set(url.toString());
+        replicationUrl.set(url);
     }
 
     @Override

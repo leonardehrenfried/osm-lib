@@ -245,7 +245,9 @@ public class PBFInput extends BinaryParser implements OSMEntitySource {
         entitySink = sink;
         entitySink.writeBegin();
         new BlockInputStream(inputStream, this).process();
-        entitySink.setReplicationUrl(replicationUrl);
+        if(replicationUrl != null) {
+            entitySink.setReplicationUrl(replicationUrl);
+        }
         entitySink.writeEnd();
     }
 
