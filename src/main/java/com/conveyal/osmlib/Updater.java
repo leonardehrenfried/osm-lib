@@ -1,8 +1,6 @@
 package com.conveyal.osmlib;
 
 import com.google.common.collect.Lists;
-import java.net.MalformedURLException;
-import java.net.URI;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +52,6 @@ public class Updater implements Runnable {
 
     public static class Diff {
         URL url;
-        String timescale;
         int sequenceNumber;
         long timestamp;
 
@@ -67,15 +64,14 @@ public class Updater implements Runnable {
         }
     }
 
-    public Diff fetchState(String timescale, int sequenceNumber) {
+    private Diff fetchState(int sequenceNumber) {
         Diff diffState = new Diff();
         StringBuilder sb = new StringBuilder(osm.osmosisReplicationUrl().orElse(FALLBACK_BASE_URL));
-        if(!sb.toString().endsWith("/")){
-           sb.append("/");
-        }
+
         try {
-            sb.append(timescale);
-            sb.append("/");
+            if(!sb.toString().endsWith("/")){
+                sb.append("/");
+            }
             if (sequenceNumber > 0) {
                 int a = sequenceNumber / 1000000;
                 int b = (sequenceNumber - (a * 1000000)) / 1000;
@@ -87,7 +83,7 @@ public class Updater implements Runnable {
                 // Remove the changeset filename, leaving dot
                 sb.delete(sb.length() - 6, sb.length());
             } else {
-                LOG.debug("Checking replication state for timescale {}", timescale);
+                LOG.debug("Checking replication state for sequence number {}", sequenceNumber);
             }
             sb.append("state.txt");
             String planetReplicationUrlString = sb.toString();
@@ -111,7 +107,6 @@ public class Updater implements Runnable {
             String dateTimeString = timestamp.replace("\\:", ":");
             diffState.timestamp = DatatypeConverter.parseDateTime(dateTimeString).getTimeInMillis() / 1000;
             diffState.sequenceNumber = Integer.parseInt(kvs.get("sequenceNumber"));
-            diffState.timescale = timescale;
         } catch (Exception e) {
             LOG.warn("Could not process OSM state: {}", sb);
             e.printStackTrace();
@@ -122,9 +117,7 @@ public class Updater implements Runnable {
     }
 
     public String getDateString(long secondsSinceEpoch) {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        format.setTimeZone(TimeZone.getTimeZone("Etc/UTC"));
-        return format.format(new Date(secondsSinceEpoch));
+        return Instant.ofEpochSecond(secondsSinceEpoch).toString();
     }
 
     /**
@@ -133,7 +126,7 @@ public class Updater implements Runnable {
      */
     public List<Diff> findDiffs (String timescale) {
         List<Diff> workQueue = new ArrayList<Diff>();
-        Diff latest = fetchState(timescale, 0);
+        Diff latest = fetchState(0);
         if (latest == null) {
             LOG.error("Could not find {}-scale updates from OSM!", timescale);
             return List.of();
@@ -142,7 +135,7 @@ public class Updater implements Runnable {
         if (latest.timestamp > osm.timestamp.get()) {
             // Working backward, find all updates that are dated after the current database timestamp.
             for (int seq = latest.sequenceNumber; seq > 0; seq--) {
-                Diff diff = fetchState(timescale, seq);
+                Diff diff = fetchState(seq);
                 if (diff == null || diff.timestamp <= osm.timestamp.get()) break;
                 workQueue.add(diff);
             }
@@ -159,7 +152,7 @@ public class Updater implements Runnable {
             SAXParser saxParser = factory.newSAXParser();
             OSMChangeParser handler = new OSMChangeParser(osm);
             for (Diff state : workQueue) {
-                LOG.info("Applying {} update for {}", state.timescale, getDateString(state.timestamp * 1000));
+                LOG.info("Applying update for {}", getDateString(state.timestamp * 1000));
                 LOG.info("Requesting data from {}", state.url);
                 InputStream inputStream = new GZIPInputStream(state.url.openStream());
                 saxParser.parse(inputStream, handler);
@@ -168,8 +161,7 @@ public class Updater implements Runnable {
                 // Record the last update applied so we can jump straight to the next one
                 lastApplied = state;
                 LOG.info(
-                    "Applied {} update for {}. {} total applied.",
-                    state.timescale,
+                    "Applied update for {}. {} total applied.",
                     getDateString(state.timestamp * 1000),
                     handler.nParsed
                 );
@@ -228,7 +220,7 @@ public class Updater implements Runnable {
             }
             int sleepSeconds = (int) (updateInterval.toSeconds() - phaseErrorSeconds); // reduce 1-minute polling wait by phase difference
             if (sleepSeconds > 1) {
-                LOG.info("Sleeping {} seconds", sleepSeconds);
+                LOG.info("Sleeping {}", Duration.ofSeconds(sleepSeconds));
                 try {
                     Thread.sleep(sleepSeconds * 1000);
                 } catch (InterruptedException e) {
