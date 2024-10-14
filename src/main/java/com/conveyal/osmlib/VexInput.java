@@ -1,5 +1,7 @@
 package com.conveyal.osmlib;
 
+import java.net.URL;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +38,11 @@ public class VexInput implements OSMEntitySource {
 
     public VexInput(InputStream vexStream) {
         this.vexStream = vexStream;
+    }
+
+    @Override
+    public Optional<String> osmosisReplicationUrl() {
+        return Optional.empty();
     }
 
     @Override

@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.Optional;
 
 /**
  * An interface for classes that read in OSM entities from somewhere and pipe them into an OSMEntitySink.
@@ -13,10 +14,12 @@ import java.net.URL;
  */
 public interface OSMEntitySource {
 
-    /** Read the OSM entities from this source and pump them through to the sink. */
-    public abstract void copyTo (OSMEntitySink sink) throws IOException;
 
-    public static OSMEntitySource forUrl (String urlString) {
+    Optional<String> osmosisReplicationUrl();
+    /** Read the OSM entities from this source and pump them through to the sink. */
+    void copyTo(OSMEntitySink sink) throws IOException;
+
+    static OSMEntitySource forUrl(String urlString) {
         try {
             URL url = new URL(urlString);
             InputStream inputStream = url.openStream();
@@ -26,7 +29,7 @@ public interface OSMEntitySource {
         }
     }
 
-    public static OSMEntitySource forFile (String path) {
+    static OSMEntitySource forFile(String path) {
         try {
             InputStream inputStream = new FileInputStream(path);
             return forStream(path, inputStream);
@@ -35,7 +38,7 @@ public interface OSMEntitySource {
         }
     }
 
-    public static OSMEntitySource forStream (String name, InputStream inputStream) {
+    static OSMEntitySource forStream(String name, InputStream inputStream) {
         if (name.endsWith(".pbf")) {
             return new PBFInput(inputStream);
         } else if (name.endsWith(".vex")) {

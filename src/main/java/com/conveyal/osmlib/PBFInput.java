@@ -13,6 +13,10 @@ package com.conveyal.osmlib;
  */
 
 import com.conveyal.osmlib.OSMEntity.Type;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.util.Optional;
 import org.openstreetmap.osmosis.osmbinary.BinaryParser;
 import org.openstreetmap.osmosis.osmbinary.Osmformat;
 import org.openstreetmap.osmosis.osmbinary.file.BlockInputStream;
@@ -36,12 +40,9 @@ public class PBFInput extends BinaryParser implements OSMEntitySource {
     private long nodeCount = 0;
     private long wayCount = 0;
     private long relationCount = 0;
-    private InputStream inputStream;
+    private final InputStream inputStream;
     private OSMEntitySink entitySink;
-
-    private static final String[] retainKeys = new String[] {
-        "highway", "parking", "bicycle", "name"
-    };
+    private String replicationUrl;
 
     public PBFInput(InputStream inputStream) {
         this.inputStream = inputStream;
@@ -213,6 +214,10 @@ public class PBFInput extends BinaryParser implements OSMEntitySource {
         } else {
             LOG.info("PBF file has no replication timestamp.");
         }
+        if(block.hasOsmosisReplicationBaseUrl()){
+            replicationUrl = block.getOsmosisReplicationBaseUrl();
+            entitySink.setReplicationUrl(replicationUrl.toString());
+        }
     }
 
     @Override
@@ -231,10 +236,16 @@ public class PBFInput extends BinaryParser implements OSMEntitySource {
     }
 
     @Override
+    public Optional<String> osmosisReplicationUrl() {
+        return Optional.ofNullable(replicationUrl);
+    }
+
+    @Override
     public void copyTo(OSMEntitySink sink) throws IOException {
         entitySink = sink;
         entitySink.writeBegin();
         new BlockInputStream(inputStream, this).process();
+        entitySink.setReplicationUrl(replicationUrl);
         entitySink.writeEnd();
     }
 

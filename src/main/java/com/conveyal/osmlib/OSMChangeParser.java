@@ -30,8 +30,8 @@ public class OSMChangeParser extends DefaultHandler {
         this.osm = osm;
     }
 
-    public void startElement(String uri, String localName, String qName, Attributes attributes)
-            throws SAXException {
+    @Override
+    public void startElement(String uri, String localName, String qName, Attributes attributes) {
 
         String idString = attributes.getValue("id");
 
@@ -62,7 +62,8 @@ public class OSMChangeParser extends DefaultHandler {
         }
     }
 
-    public void endElement(String uri, String localName, String qName) throws SAXException {
+    @Override
+    public void endElement(String uri, String localName, String qName) {
 
         nParsed++;
         if (nParsed % 1000000 == 0) {

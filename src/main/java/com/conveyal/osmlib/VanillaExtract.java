@@ -108,7 +108,6 @@ public class VanillaExtract {
             OutputStream outStream = response.getOutputStream();
             try {
                 int suffixIndex = uri.lastIndexOf('.');
-                String fileType = uri.substring(suffixIndex);
                 String[] coords = uri.substring(1, suffixIndex).split("[,;]");
                 if (coords.length < 4) {
                     throw new IllegalArgumentException("Must provide a bounding box with 4 coordinates");

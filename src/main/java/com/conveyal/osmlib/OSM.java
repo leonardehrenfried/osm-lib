@@ -2,17 +2,23 @@ package com.conveyal.osmlib;
 
 import com.conveyal.osmlib.serializer.NodeSerializer;
 import com.conveyal.osmlib.serializer.WaySerializer;
-import org.mapdb.*;
-import org.mapdb.Fun.Tuple3;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Optional;
+import org.mapdb.Atomic;
+import org.mapdb.BTreeKeySerializer;
+import org.mapdb.BTreeMap;
+import org.mapdb.Bind;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Fun;
+import org.mapdb.Fun.Tuple3;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * osm-lib representation of a subset of OpenStreetMap. One or more OSM files (e.g. PBF) can be loaded into this
@@ -25,6 +31,7 @@ import java.util.NavigableSet;
 public class OSM implements OSMEntitySource, OSMEntitySink {
 
     private static final Logger LOG = LoggerFactory.getLogger(OSM.class);
+    private final Atomic.String replicationUrl;
 
     public Map<Long, Node> nodes;
     public Map<Long, Way> ways;
@@ -169,6 +176,7 @@ public class OSM implements OSMEntitySource, OSMEntitySink {
         // GetAtomicLong() will create the atomic long entry if it doesn't exist
         timestamp = db.getAtomicLong("timestamp");
         sequenceNumber = db.getAtomicLong("sequence_number");
+        replicationUrl = db.getAtomicString("replication_url");
     }
 
     // TODO put these read/write methods on all sources/sinks
@@ -257,6 +265,11 @@ public class OSM implements OSMEntitySource, OSMEntitySink {
         this.copyTo(sink);
     }
 
+    @Override
+    public Optional<String> osmosisReplicationUrl() {
+        return Optional.ofNullable(db.getAtomicString("replication_url").get());
+    }
+
     /** Write the contents of this OSM MapDB out to an OSM entity sink (from OSMEntitySource interface). */
     @Override
     public void copyTo (OSMEntitySink sink) throws IOException {
@@ -264,6 +277,9 @@ public class OSM implements OSMEntitySource, OSMEntitySink {
         sink.writeBegin();
         if (timestamp.get() > 0) {
             sink.setReplicationTimestamp(timestamp.get());
+        }
+        if(replicationUrl != null){
+            sink.setReplicationUrl(replicationUrl.get());
         }
         for (Map.Entry<Long, Node> nodeEntry : this.nodes.entrySet()) {
             sink.writeNode(nodeEntry.getKey(), nodeEntry.getValue());
@@ -337,6 +353,11 @@ public class OSM implements OSMEntitySource, OSMEntitySink {
     public void setReplicationTimestamp(long secondsSinceEpoch) {
         // TODO handle the case where multiple files are loaded (oldest timestamp should be used)
         timestamp.set(secondsSinceEpoch);
+    }
+
+    @Override
+    public void setReplicationUrl(String url) {
+        replicationUrl.set(url.toString());
     }
 
     @Override

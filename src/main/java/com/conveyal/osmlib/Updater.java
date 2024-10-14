@@ -1,6 +1,9 @@
 package com.conveyal.osmlib;
 
 import com.google.common.collect.Lists;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,7 +17,6 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -27,32 +29,27 @@ import java.util.zip.GZIPInputStream;
  * Concurrency issues:
  * "MapDB should be thread safe within single JVM. So any number of parallel threads is allowed.
  * It supports parallel writes."
- *
- * However we may eventually want to apply updates in transactions.
+ * <p>
+ * However, we may eventually want to apply updates in transactions.
  */
 public class Updater implements Runnable {
 
     private static final Logger LOG = LoggerFactory.getLogger(Updater.class);
 
-    public static final String BASE_URL = "https://planet.openstreetmap.org/replication/";
+    public static final String FALLBACK_BASE_URL = "https://planet.openstreetmap.org/replication/";
 
     private static final Instant MIN_REPLICATION_INSTANT = Instant.parse("2015-05-01T00:00:00.00Z");
 
     private static final Instant MAX_REPLICATION_INSTANT = Instant.parse("2100-02-01T00:00:00.00Z");
+    private final Duration updateInterval;
 
     OSM osm;
 
     Diff lastApplied;
 
-    public Updater(OSM osm) {
-        this.osm = osm;
-    }
-
-    public static enum Timescale {
-        DAY, HOUR, MINUTE;
-        public String lowerCase() {
-            return this.toString().toLowerCase();
-        }
+    public Updater(OSM osm, Duration updateInterval) {
+      this.osm = osm;
+      this.updateInterval = updateInterval;
     }
 
     public static class Diff {
@@ -72,7 +69,10 @@ public class Updater implements Runnable {
 
     public Diff fetchState(String timescale, int sequenceNumber) {
         Diff diffState = new Diff();
-        StringBuilder sb = new StringBuilder(BASE_URL);
+        StringBuilder sb = new StringBuilder(osm.osmosisReplicationUrl().orElse(FALLBACK_BASE_URL));
+        if(!sb.toString().endsWith("/")){
+           sb.append("/");
+        }
         try {
             sb.append(timescale);
             sb.append("/");
@@ -113,7 +113,7 @@ public class Updater implements Runnable {
             diffState.sequenceNumber = Integer.parseInt(kvs.get("sequenceNumber"));
             diffState.timescale = timescale;
         } catch (Exception e) {
-            LOG.warn("Could not process OSM state: {}", sb.toString());
+            LOG.warn("Could not process OSM state: {}", sb);
             e.printStackTrace();
             return null;
         }
@@ -136,7 +136,7 @@ public class Updater implements Runnable {
         Diff latest = fetchState(timescale, 0);
         if (latest == null) {
             LOG.error("Could not find {}-scale updates from OSM!", timescale);
-            return Collections.EMPTY_LIST;
+            return List.of();
         }
         // Only check specific updates if the overall state for this timescale implies there are new ones.
         if (latest.timestamp > osm.timestamp.get()) {
@@ -187,10 +187,10 @@ public class Updater implements Runnable {
      * This is the main entry point. Give it an OSM database and it will keep it up to date in a new thread.
      */
     public static Thread spawnUpdateThread(OSM osm) {
-        Thread updateThread = new Thread(new Updater(osm));
+        Thread updateThread = new Thread(new Updater(osm, Duration.ofHours(1)));
         Instant initialTimestamp = Instant.ofEpochSecond(osm.timestamp.get());
         if (initialTimestamp.isBefore(MIN_REPLICATION_INSTANT) || initialTimestamp.isAfter(MAX_REPLICATION_INSTANT)) {
-            LOG.error("OSM database timestamp seems incorrect: {}", initialTimestamp.toString());
+            LOG.error("OSM database timestamp seems incorrect: {}", initialTimestamp);
             LOG.error("Not running the minutely updater thread.");
         } else {
             updateThread.start();
@@ -226,7 +226,7 @@ public class Updater implements Runnable {
             if (Math.abs(phaseErrorSeconds) > 1) {
                 LOG.info("Compensating for polling phase error of {} seconds", phaseErrorSeconds);
             }
-            int sleepSeconds = 60 - phaseErrorSeconds; // reduce 1-minute polling wait by phase difference
+            int sleepSeconds = (int) (updateInterval.toSeconds() - phaseErrorSeconds); // reduce 1-minute polling wait by phase difference
             if (sleepSeconds > 1) {
                 LOG.info("Sleeping {} seconds", sleepSeconds);
                 try {

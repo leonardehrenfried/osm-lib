@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URL;
 
 /**
  * Created by abyrd on 2015-05-04
@@ -13,19 +14,21 @@ import java.io.OutputStream;
  */
 public interface OSMEntitySink {
 
-    public void writeBegin() throws IOException;
+    void writeBegin() throws IOException;
 
-    public void setReplicationTimestamp(long secondsSinceEpoch); // Needs to be called before any entities are written
+    void setReplicationTimestamp(long secondsSinceEpoch); // Needs to be called before any entities are written
 
-    public void writeNode(long id, Node node) throws IOException; // TODO rename id parameters to nodeId, wayId, relationId throughout
+    default void setReplicationUrl(String url){}
 
-    public void writeWay(long id, Way way) throws IOException;
+    void writeNode(long id, Node node) throws IOException; // TODO rename id parameters to nodeId, wayId, relationId throughout
 
-    public void writeRelation(long id, Relation relation) throws IOException;
+    void writeWay(long id, Way way) throws IOException;
 
-    public void writeEnd() throws IOException;
+    void writeRelation(long id, Relation relation) throws IOException;
 
-    public static OSMEntitySink forFile (String path) {
+    void writeEnd() throws IOException;
+
+    static OSMEntitySink forFile (String path) {
         try {
             OutputStream outputStream = new FileOutputStream(path);
             return forStream(path, outputStream);
@@ -34,7 +37,7 @@ public interface OSMEntitySink {
         }
     }
 
-    public static OSMEntitySink forStream (String name, OutputStream outputStream) {
+    static OSMEntitySink forStream (String name, OutputStream outputStream) {
         if (name.endsWith(".pbf")) {
             return new PBFOutput(outputStream);
         } else if (name.endsWith(".vex")) {

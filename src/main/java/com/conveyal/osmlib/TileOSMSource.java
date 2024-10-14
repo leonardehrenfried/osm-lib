@@ -5,6 +5,8 @@ import gnu.trove.list.TLongList;
 import gnu.trove.list.array.TLongArrayList;
 import gnu.trove.set.TLongSet;
 import gnu.trove.set.hash.TLongHashSet;
+import java.net.URL;
+import java.util.Optional;
 import org.mapdb.Fun;
 import org.mapdb.Fun.Tuple3;
 import org.slf4j.Logger;
@@ -44,6 +46,11 @@ public class TileOSMSource implements OSMEntitySource {
         // so the parameter order min,max.max,min is intentional.
         setTileRange(minTile.xtile, maxTile.ytile, maxTile.xtile, minTile.ytile);
 
+    }
+
+    @Override
+    public Optional<String> osmosisReplicationUrl() {
+        return Optional.empty();
     }
 
     public void copyTo (OSMEntitySink sink) {
