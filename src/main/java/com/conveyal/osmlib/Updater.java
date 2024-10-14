@@ -12,15 +12,12 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.zip.GZIPInputStream;
 
 /**
@@ -101,7 +98,7 @@ public class Updater implements Runnable {
             LOG.info("Received data from {}", planetReplicationUrlString);
             String timestamp = kvs.get("timestamp");
             if (timestamp == null) {
-                LOG.warn("Timestamp field not found in {}", planetReplicationUrl.toString());
+                LOG.warn("Timestamp field not found in {}", planetReplicationUrl);
                 return null;
             }
             String dateTimeString = timestamp.replace("\\:", ":");
@@ -124,11 +121,11 @@ public class Updater implements Runnable {
      * @return a chronologically ordered list of all diffs at the given timescale with a timestamp after
      * the database timestamp.
      */
-    public List<Diff> findDiffs (String timescale) {
+    public List<Diff> findDiffs () {
         List<Diff> workQueue = new ArrayList<Diff>();
         Diff latest = fetchState(0);
         if (latest == null) {
-            LOG.error("Could not find {}-scale updates from OSM!", timescale);
+            LOG.error("Could not find updates from OSM!");
             return List.of();
         }
         // Only check specific updates if the overall state for this timescale implies there are new ones.
@@ -140,7 +137,7 @@ public class Updater implements Runnable {
                 workQueue.add(diff);
             }
         }
-        LOG.info("Found {} {}-scale updates.", workQueue.size(), timescale);
+        LOG.info("Found {} updates.", workQueue.size());
         // Put the updates in chronological order before returning them
         return Lists.reverse(workQueue);
     }
@@ -168,7 +165,7 @@ public class Updater implements Runnable {
             }
             LOG.info("Finished applying diffs. {} total applied.", handler.nParsed);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Error when applying OSM updates", e);
         }
     }
 
@@ -198,16 +195,7 @@ public class Updater implements Runnable {
     @Override
     public void run() {
         while (true) {
-            // long timestamp = osm.db.getAtomicLong("timestamp").get(); // UTC
-            // If more than one year ago, complain. If more than a few minutes in the future, complain.
-            long now = System.currentTimeMillis() / 1000;
-            if ((now - osm.timestamp.get()) > 60 * 60 * 24) {
-                applyDiffs(findDiffs("day"));
-            }
-            if ((now - osm.timestamp.get()) > 60 * 60) {
-                applyDiffs(findDiffs("hour"));
-            }
-            applyDiffs(findDiffs("minute"));
+            applyDiffs(findDiffs());
             // Attempt to lock polling phase to server updates
             // TODO use time that file actually appeared rather than database timestamp
             int phaseErrorSeconds = 0;
