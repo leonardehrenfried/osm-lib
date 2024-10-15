@@ -31,8 +31,6 @@ public class VanillaExtract {
 
     private static final String BIND_ADDRESS = "0.0.0.0";
 
-    private static final String USAGE = "";
-
     public static void main(String[] args) {
 
         OSM osm = new OSM(args[0]);
