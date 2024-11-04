@@ -184,7 +184,7 @@
     <dependency>
     	<groupId>com.google.guava</groupId>
     	<artifactId>guava</artifactId>
-    	<version>24.1.1-jre</version>
+    	<version>32.0.0-jre</version>
     </dependency>
     <!-- MapDB is a pure Java database backend for storing objects out of heap memory. -->
     <dependency>
@@ -196,26 +196,26 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>1.7.25</version>
+      <version>2.0.12</version>
     </dependency>
     <!-- Logging API implementation (really we shouldn't even specify an implementation as osm-lib is a library,
       but it does get run stand-alone for serving up OSM data. -->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.3</version>
+      <version>1.4.12</version>
     </dependency>
     <!-- OSM PBF format support. Transitive dependency on Protobuf 3.4.0. -->
     <dependency>
       <groupId>org.openstreetmap.osmosis</groupId>
       <artifactId>osmosis-osm-binary</artifactId>
-      <version>0.48.2</version>
+      <version>0.48.3</version>
     </dependency>
     <!-- HTTP server for providing OSM extracts over HTTP. -->
     <dependency>
       <groupId>org.glassfish.grizzly</groupId>
       <artifactId>grizzly-http-server</artifactId>
-      <version>2.4.3</version>
+      <version>4.0.1</version>
     </dependency>
     <!-- Compressed bitmaps (bisets) used to track which OSM IDs have been encountered during large operations. -->
     <dependency>
