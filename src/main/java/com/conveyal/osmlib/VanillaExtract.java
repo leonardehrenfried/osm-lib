@@ -13,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.BindException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Load OSM data into MapDB and perform bounding box extracts.
@@ -70,23 +68,6 @@ public class VanillaExtract {
             LOG.info("Interrupted, shutting down.");
         }
         httpServer.shutdown();
-    }
-
-    // Planet files are named planet-150504.osm.pbf (YYMMDD format)
-    // TODO auto-choose a DL mirror using ping?
-    public long timestampForPlanetFile(String filename) {
-        Pattern longDatePattern = Pattern.compile("\\d{8}"); // look for eight digits
-        Pattern shortDatePattern = Pattern.compile("\\d{6}"); // look for six digits
-        Matcher dateMatcher = longDatePattern.matcher(filename);
-        if (dateMatcher.matches()) {
-            // TODO
-        } else {
-            dateMatcher = longDatePattern.matcher(filename);
-            if (dateMatcher.matches()) {
-                // TODO
-            }
-        }
-        return 0;
     }
 
     private static class VexHttpHandler extends HttpHandler {
