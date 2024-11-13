@@ -1,5 +1,8 @@
 package com.conveyal.osmlib;
 
+import java.time.Duration;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.glassfish.grizzly.http.Method;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.HttpServer;
@@ -33,6 +36,8 @@ public class VanillaExtract {
 
         OSM osm = new OSM(args[0]);
 
+        final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+
         if (args.length > 1 && args[1].startsWith("--load")) {
             osm.intersectionDetection = true;
             osm.tileIndexing = true;
@@ -47,7 +52,7 @@ public class VanillaExtract {
             return;
         }
 
-        Thread updateThread = Updater.spawnUpdateThread(osm);
+        var updater = new Updater(osm);
 
         LOG.info("Starting VEX HTTP server on port {} of interface {}", PORT, BIND_ADDRESS);
         HttpServer httpServer = new HttpServer();
@@ -56,23 +61,25 @@ public class VanillaExtract {
         // As in servlets, * is needed in base path to identify the "rest" of the path.
         httpServer.getServerConfiguration().addHttpHandler(new VexHttpHandler(osm), "/*");
         try {
+            executor.scheduleWithFixedDelay(updater::update,0, 1, TimeUnit.MINUTES);
             httpServer.start();
-            LOG.info("VEX server running.");
+            LOG.info("Grizzly server running.");
             Thread.currentThread().join();
-            updateThread.interrupt();
+            LOG.info("VEX server running.");
         } catch (BindException be) {
             LOG.error("Cannot bind to port {}. Is it already in use?", PORT);
-        } catch (IOException ioe) {
-            LOG.error("IO exception while starting server.");
-        } catch (InterruptedException ie) {
-            LOG.info("Interrupted, shutting down.");
+        } catch (IOException | InterruptedException e) {
+            LOG.error("Exception", e);
         }
-        httpServer.shutdown();
+        finally {
+            executor.shutdown();
+            httpServer.shutdown();
+        }
     }
 
     private static class VexHttpHandler extends HttpHandler {
 
-        private static OSM osm;
+        private final OSM osm;
 
         public VexHttpHandler(OSM osm) {
             this.osm = osm;

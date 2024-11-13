@@ -1,7 +1,6 @@
 package com.conveyal.osmlib;
 
 import com.google.common.collect.Lists;
-import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +26,7 @@ import java.util.zip.GZIPInputStream;
  * <p>
  * However, we may eventually want to apply updates in transactions.
  */
-public class Updater implements Runnable {
+public class Updater {
 
     private static final Logger LOG = LoggerFactory.getLogger(Updater.class);
 
@@ -36,15 +35,13 @@ public class Updater implements Runnable {
     private static final Instant MIN_REPLICATION_INSTANT = Instant.parse("2015-05-01T00:00:00.00Z");
 
     private static final Instant MAX_REPLICATION_INSTANT = Instant.parse("2100-02-01T00:00:00.00Z");
-    private final Duration updateInterval;
 
     OSM osm;
 
     Diff lastApplied;
 
-    public Updater(OSM osm, Duration updateInterval) {
+    public Updater(OSM osm) {
       this.osm = osm;
-      this.updateInterval = updateInterval;
     }
 
     public static class Diff {
@@ -142,7 +139,8 @@ public class Updater implements Runnable {
         return Lists.reverse(workQueue);
     }
 
-    public void applyDiffs(List<Diff> workQueue) {
+    private void applyDiffs(List<Diff> workQueue) {
+
         try {
             SAXParserFactory factory = SAXParserFactory.newInstance();
             factory.setNamespaceAware(true);
@@ -169,54 +167,14 @@ public class Updater implements Runnable {
         }
     }
 
-    // If we have a last update, add one to its seq number and attempt to fetch
-    // Define order on updates based on timestamp.
-
-    /**
-     * This is the main entry point. Give it an OSM database and it will keep it up to date in a new thread.
-     */
-    public static Thread spawnUpdateThread(OSM osm) {
-        Thread updateThread = new Thread(new Updater(osm, Duration.ofHours(1)));
+    /** Run the updater, usually in another thread. */
+    public void update() {
         Instant initialTimestamp = Instant.ofEpochSecond(osm.timestamp.get());
         if (initialTimestamp.isBefore(MIN_REPLICATION_INSTANT) || initialTimestamp.isAfter(MAX_REPLICATION_INSTANT)) {
             LOG.error("OSM database timestamp seems incorrect: {}", initialTimestamp);
             LOG.error("Not running the minutely updater thread.");
-        } else {
-            updateThread.start();
         }
-        return updateThread;
-    }
-
-    public static void main(String[] args) {
-        spawnUpdateThread(new OSM(null));
-    }
-
-    /** Run the updater, usually in another thread. */
-    @Override
-    public void run() {
-        while (true) {
-            applyDiffs(findDiffs());
-            // Attempt to lock polling phase to server updates
-            // TODO use time that file actually appeared rather than database timestamp
-            int phaseErrorSeconds = 0;
-            if (lastApplied != null) {
-                phaseErrorSeconds = (int) (((System.currentTimeMillis() / 1000) - lastApplied.timestamp) % 60);
-                phaseErrorSeconds -= 5; // adjust for expected database export latency
-            }
-            if (Math.abs(phaseErrorSeconds) > 1) {
-                LOG.info("Compensating for polling phase error of {} seconds", phaseErrorSeconds);
-            }
-            int sleepSeconds = (int) (updateInterval.toSeconds() - phaseErrorSeconds); // reduce 1-minute polling wait by phase difference
-            if (sleepSeconds > 1) {
-                LOG.info("Sleeping {}", Duration.ofSeconds(sleepSeconds));
-                try {
-                    Thread.sleep(sleepSeconds * 1000);
-                } catch (InterruptedException e) {
-                    LOG.info("Thread interrupted, exiting polling loop.");
-                    break;
-                }
-            }
-        }
+        applyDiffs(findDiffs());
     }
 
 }
