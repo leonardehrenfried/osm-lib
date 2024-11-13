@@ -53,14 +53,13 @@ public class TileOSMSource implements OSMEntitySource {
         return Optional.empty();
     }
 
-    public void copyTo (OSMEntitySink sink) {
+    public void copyTo (OSMEntitySink sink) throws IOException {
         // Avoid writing out shared/intersection nodes more than once. Besides being wasteful, the first node in one way
         // may be the last node in the previous way output, which would create a node ID delta of zero and prematirely
         // end the block.
         NodeTracker nodesSeen = new NodeTracker();
         TLongSet relationsSeen = new TLongHashSet();
 
-        try {
             sink.writeBegin();
             for (int pass = 0; pass < 2; pass++) {
                 for (int x = minX; x <= maxX; x++) {
@@ -144,9 +143,6 @@ public class TileOSMSource implements OSMEntitySource {
                 }
             }
             sink.writeEnd();
-        } catch (IOException ex) {
-            throw new RuntimeException("I/O exception while writing tiled OSM data.", ex);
-        }
     }
 
 }

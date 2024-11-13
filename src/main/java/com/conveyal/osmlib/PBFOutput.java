@@ -44,6 +44,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
     private Osmformat.DenseNodes.Builder denseNodesBuilder;
 
     private Thread writerThread = null;
+    private Thread readerThread = null;
 
     /** Construct a new PBF output encoder which writes to the given downstream OutputStream. */
     public PBFOutput(OutputStream downstream) {
@@ -51,7 +52,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
     }
 
     /** Reset the inter-entity delta coding values and set up a new block. */
-    private void beginBlock(OSMEntity.Type eType) throws IOException {
+    private void beginBlock(OSMEntity.Type eType) {
         prevId = prevFixedLat = prevFixedLon = nEntitiesInBlock = 0;
         stringTable.clear();
         primitiveGroupBuilder = Osmformat.PrimitiveGroup.newBuilder();
@@ -61,7 +62,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
     }
 
     /** We always add one primitive group of less that 8k elements to each primitive block. */
-    private void endBlock () {
+    private void endBlock () throws IOException {
         if (nEntitiesInBlock > 0) {
             if (currEntityType == OSMEntity.Type.NODE) {
                 primitiveGroupBuilder.setDense(denseNodesBuilder);
@@ -72,7 +73,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
                         .setStringtable(stringTable.toBuilder()).addPrimitivegroup(primitiveGroupBuilder).build();
                 synchronousQueue.put(primitiveBlock);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new IOException(e);
             }
         }
     }
@@ -80,7 +81,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
     /**
      * @param block is either a PrimitiveBlock or a HeaderBlock
      */
-    private void writeOneBlob(GeneratedMessageV3 block) {
+    private void writeOneBlob(GeneratedMessageV3 block) throws IOException {
 
         // FIXME lotsa big copies going on here
 
@@ -109,14 +110,10 @@ public class PBFOutput implements OSMEntitySink, Runnable {
         Fileformat.BlobHeader blobHeader = Fileformat.BlobHeader.newBuilder()
                 .setType(blobTypeString).setDatasize(serializedBlob.length).build();
         byte[] serializedBlobHeader = blobHeader.toByteArray();
-        try {
             // "Returns a big-endian representation of value in a 4-element byte array"
             downstream.write(Ints.toByteArray(serializedBlobHeader.length));
             downstream.write(serializedBlobHeader);
             downstream.write(serializedBlob);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
     }
 
@@ -172,8 +169,10 @@ public class PBFOutput implements OSMEntitySink, Runnable {
         }
         writeOneBlob(builder.build());
 
+        readerThread = Thread.currentThread();
         // Start another thread that will handle compression and writing in parallel.
         writerThread = new Thread(this);
+        writerThread.setName("PBF-Writer for " + readerThread.getName());
         writerThread.start();
 
     }
@@ -192,7 +191,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
             synchronousQueue.put(Osmformat.PrimitiveBlock.getDefaultInstance());
             writerThread.join();
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            throw new IOException(e);
         }
         LOG.info("Finished writing PBF format.");
     }
@@ -308,8 +307,9 @@ public class PBFOutput implements OSMEntitySink, Runnable {
                     break; // a block with no primitive groups tells the writer thread to shut down.
                 }
                 writeOneBlob(block);
-            } catch (InterruptedException ex) {
-                LOG.error("Block writer thread was interrupted while waiting for work.");
+            } catch (InterruptedException|IOException ex) {
+                LOG.error("Writer thread was interrupted while waiting for work: {}", ex.getMessage());
+                readerThread.interrupt();
                 break;
             }
         }
@@ -317,7 +317,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
             downstream.flush();
             downstream.close();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            LOG.error("Exception while flushing downstream: {}", e.getMessage() );
         }
     }
 
