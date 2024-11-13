@@ -1,6 +1,8 @@
 package com.conveyal.osmlib;
 
-import java.time.Duration;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.BindException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.glassfish.grizzly.http.Method;
@@ -12,10 +14,6 @@ import org.glassfish.grizzly.http.server.Response;
 import org.glassfish.grizzly.http.util.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.BindException;
 
 /**
  * Load OSM data into MapDB and perform bounding box extracts.
@@ -61,7 +59,7 @@ public class VanillaExtract {
         // As in servlets, * is needed in base path to identify the "rest" of the path.
         httpServer.getServerConfiguration().addHttpHandler(new VexHttpHandler(osm), "/*");
         try {
-            executor.scheduleWithFixedDelay(updater::update,0, 1, TimeUnit.MINUTES);
+            executor.scheduleWithFixedDelay(updater::update,0, 1, TimeUnit.HOURS);
             httpServer.start();
             LOG.info("Grizzly server running.");
             Thread.currentThread().join();
@@ -121,11 +119,10 @@ public class VanillaExtract {
                 response.setStatus(HttpStatus.BAD_REQUEST_400);
                 outStream.write("URI format: /min_lat,min_lon,max_lat,max_lon[.pbf|.vex] (all coords in decimal degrees)\n".getBytes());
             } catch (Exception ex) {
-                LOG.error("An internal error occurred while processing {}.", uri);
+                LOG.error("An internal error occurred while processing {}.", uri, ex);
                 response.setContentType("text/plain");
                 response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR_500);
                 outStream.write("An internal error occurred.".getBytes());
-                ex.printStackTrace();
             } finally {
                 outStream.close();
             }
