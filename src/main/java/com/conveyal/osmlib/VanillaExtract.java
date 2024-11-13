@@ -65,7 +65,6 @@ public class VanillaExtract {
             httpServer.start();
             LOG.info("Grizzly server running.");
             Thread.currentThread().join();
-            LOG.info("VEX server running.");
         } catch (BindException be) {
             LOG.error("Cannot bind to port {}. Is it already in use?", PORT);
         } catch (IOException | InterruptedException e) {
