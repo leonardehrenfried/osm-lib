@@ -90,10 +90,15 @@ public class VanillaExtract {
             LOG.info("VEX request: {}", uri);
             OutputStream outStream = response.getOutputStream();
             try {
+                if(!uri.contains(",") || uri.contains(";")){
+                    writeError400(response, outStream);
+                    return;
+                }
                 int suffixIndex = uri.lastIndexOf('.');
                 String[] coords = uri.substring(1, suffixIndex).split("[,;]");
                 if (coords.length < 4) {
-                    throw new IllegalArgumentException("Must provide a bounding box with 4 coordinates");
+                    writeError400(response, outStream);
+                    return;
                 }
                 double minLat = Double.parseDouble(coords[0]);
                 double minLon = Double.parseDouble(coords[1]);
@@ -115,9 +120,7 @@ public class VanillaExtract {
                 response.setStatus(HttpStatus.OK_200);
             } catch (IllegalArgumentException ex) {
                 LOG.error("Could not process request with bad URI format {}.", uri);
-                response.setContentType("text/plain");
-                response.setStatus(HttpStatus.BAD_REQUEST_400);
-                outStream.write("URI format: /min_lat,min_lon,max_lat,max_lon[.pbf|.vex] (all coords in decimal degrees)\n".getBytes());
+                writeError400(response, outStream);
             } catch (Exception ex) {
                 LOG.error("An internal error occurred while processing {}.", uri, ex);
                 response.setContentType("text/plain");
@@ -126,6 +129,12 @@ public class VanillaExtract {
             } finally {
                 outStream.close();
             }
+        }
+
+        private static void writeError400(Response response, OutputStream outStream) throws IOException {
+            response.setContentType("text/plain");
+            response.setStatus(HttpStatus.BAD_REQUEST_400);
+            outStream.write("URI format: /min_lat,min_lon,max_lat,max_lon[.pbf|.vex] (all coords in decimal degrees)\n".getBytes());
         }
 
     }

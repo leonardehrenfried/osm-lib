@@ -308,7 +308,7 @@ public class PBFOutput implements OSMEntitySink, Runnable {
                 }
                 writeOneBlob(block);
             } catch (InterruptedException|IOException ex) {
-                LOG.error("Writer thread was interrupted while waiting for work: {}", ex.getMessage());
+                LOG.error("Writer thread was interrupted while waiting for work: {}. Interrupting reader thread '{}'", ex.getMessage(), readerThread.getName());
                 readerThread.interrupt();
                 break;
             }
