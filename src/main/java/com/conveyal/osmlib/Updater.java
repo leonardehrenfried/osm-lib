@@ -147,7 +147,7 @@ public class Updater {
             SAXParser saxParser = factory.newSAXParser();
             OSMChangeParser handler = new OSMChangeParser(osm);
             for (Diff state : workQueue) {
-                LOG.info("Applying update for {}", getDateString(state.timestamp * 1000));
+                LOG.info("Applying update for {}", getDateString(state.timestamp));
                 LOG.info("Requesting data from {}", state.url);
                 InputStream inputStream = new GZIPInputStream(state.url.openStream());
                 saxParser.parse(inputStream, handler);
@@ -157,7 +157,7 @@ public class Updater {
                 lastApplied = state;
                 LOG.info(
                     "Applied update for {}. {} total applied.",
-                    getDateString(state.timestamp * 1000),
+                    getDateString(state.timestamp),
                     handler.nParsed
                 );
             }
